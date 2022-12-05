@@ -1,0 +1,7 @@
+IMAGES = 'images'
+LOGITS = 'logits'
+LOSS = 'loss'
+PREDICTS = 'predicts'
+SCORES = 'scores'
+TARGETS = 'targets'
+VALID = 'valid'
