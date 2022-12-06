@@ -12,8 +12,7 @@ import pandas as pd
 from src.base_config import Config
 from src.const import IMAGES, TARGETS
 from src.utils import worker_init_fn
-from torch.utils.data import DataLoader, Dataset
-from torch.utils.data import RandomSampler
+from torch.utils.data import DataLoader, Dataset, RandomSampler # noqa
 
 
 class CustomDataset(Dataset):

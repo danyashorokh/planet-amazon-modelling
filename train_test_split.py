@@ -18,34 +18,9 @@ def preproc_df(df: pd.DataFrame):
 
     # Add onehot features for every label
     for label in label_list:
-        df[label] = df["tags"].apply(lambda x: 1 if label in x.split(' ') else 0)
+        df[label] = df["tags"].apply(lambda x: 1 if label in x.split(' ') else 0)  # noqa: B023
 
     return df
-
-
-def split_and_save_datasets(df: pd.DataFrame, save_path: str):
-    logging.info(f"Original dataset: {len(df)}")
-    
-    df = preproc_df(df)
-
-    df = df.drop_duplicates()
-    df = df.drop(["tags"], axis=1)
-    logging.info(f"Final dataset: {len(df)}")
-
-    train_df, valid_df, test_df = stratify_shuffle_split_subsets(
-        df,
-        img_path_column="image_name",
-        train_fraction=0.8,
-        verbose=True,
-    )
-    logging.info(f"Train dataset: {len(train_df)}")
-    logging.info(f"Valid dataset: {len(valid_df)}")
-    logging.info(f"Test dataset: {len(test_df)}")
-
-    train_df.to_csv(os.path.join(save_path, "train_df.csv"), index=False)
-    valid_df.to_csv(os.path.join(save_path, "valid_df.csv"), index=False)
-    test_df.to_csv(os.path.join(save_path, "test_df.csv"), index=False)
-    logging.info("Datasets successfully saved!")
 
 
 def split_and_save_datasets():
@@ -66,7 +41,7 @@ def split_and_save_datasets():
 
     if args.output_dir is not None:
         save_path = os.path.join(base_path, args.output_dir)
-    else: 
+    else:
         save_path = os.path.dirname(os.path.join(base_path, args.input_data))
 
     logging.info(f"Original dataset: {len(df)}")
@@ -74,7 +49,6 @@ def split_and_save_datasets():
     df = preproc_df(df)
 
     df = df.drop_duplicates()
-    print(args.drop_cols)
     df = df.drop(["tags"], axis=1)
     logging.info(f"Final dataset: {len(df)}")
 
