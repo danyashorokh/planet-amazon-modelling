@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import StepLR
 
 SEED = 42
 IMG_SIZE = 224
-BATCH_SIZE = 32
+BATCH_SIZE = 32  # 256
 N_EPOCHS = 10
 NUM_ITERATION_ON_EPOCH = 10
 ROOT_PATH = os.path.join(os.environ.get("ROOT_PATH"))
@@ -36,7 +36,7 @@ augmentations = albu.Compose(
 config = Config(
     num_workers=0,
     seed=SEED,
-    loss=BCEWithLogitsLoss(),
+    loss=BCELoss(),  # BCEWithLogitsLoss(),
     optimizer=torch.optim.Adam,
     optimizer_kwargs={
         "lr": 1e-3,
@@ -56,8 +56,8 @@ config = Config(
     model_kwargs={"model_name": "resnet18", "pretrained": True},
     log_metrics=["auc", "f1"],
     binary_thresh=0.1,
-    valid_metric="auc",
-    minimize_metric=False,
+    valid_metric="val_loss",
+    minimize_metric=True,
     images_dir=os.path.join(ROOT_PATH, "raw", "train"),
     image_col_id='image_name',
     train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df.csv"),
