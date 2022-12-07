@@ -1,11 +1,11 @@
 
-DVC_REMOTE_NAME := storage
+DVC_REMOTE_NAME := gstorage
 
 install:
 	pip install -r requirements.txt
 
 #download_weights:
-#	dvc pull -R weights
+#	dvc pull -R weights -r gstorage
 
 run_tests:
 	PYTHONPATH=. pytest tests/
@@ -21,3 +21,7 @@ init_dvc:
 
 install_c_libs:
 	apt-get update && apt-get install -y --no-install-recommends gcc ffmpeg libsm6 libxext6
+
+
+simple_predict:
+	python predict.py -w weights/model.best.zip -i  path/to/your/image --show

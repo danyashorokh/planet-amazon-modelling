@@ -47,7 +47,7 @@ Start without `nohup`:
 CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train.py configs/simple_config.py
 ```
 
-### Training with pytorch-lightning
+### Training with pytorch-lightning (still in development)
 Start with `nohup`:
 
 ```
@@ -60,9 +60,15 @@ Start without `nohup`:
 CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train_pl.py configs/simple_config_pl.py
 ```
 
-### Export
+### Export to script
 
 Convert model to script format with `notebooks/convert-to-script.ipynb`
+
+### Download weights (doesn't work)
+
+```
+dvc pull -R weights -r gstorage
+```
 
 ### Predict
 
@@ -73,3 +79,5 @@ python predict.py -w /path/to/your/weights -i /path/to/your/image --show
 ### Experiments logging
 
 * Catalyst resnet18 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/ea958aa81dda4c1b8cb3354ba8542c07/output/execution
+
+* Catalyst efficientnet_b3 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/069bb557d87d46fa8b64adc8151f1609/output/execution
