@@ -14,5 +14,5 @@ tests:
     stage: tests
     script:
       - ls
-      - make install_c_libs && make install # && make download_weights
+      - make install_c_libs && make install && make download_weights
       - make run_tests
