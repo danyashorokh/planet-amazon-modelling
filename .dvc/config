@@ -5,6 +5,5 @@
 ['remote "storage"']
     url = ssh://91.206.15.25/home/danyashorokh/dvc_files
     user = danyashorokh
-    keyfile = /Users/danya/.ssh/id_rsa_cvr
 ['remote "gstorage"']
     url = gdrive://1OCICacB9fHDNtj-OFBKXAPM9kcUN0T34
