@@ -10,12 +10,12 @@ lint:
       - python3 -m pip install wemake-python-styleguide==0.16.1
       - make lint
 
-tests:
+unit_tests:
     stage: tests
     script:
       - ls
       - make install_c_libs && make install && make download_weights
-      - make run_tests
+      - make run_unit_tests
 
 before_script:
     - mkdir ~/.ssh

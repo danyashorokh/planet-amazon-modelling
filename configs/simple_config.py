@@ -42,6 +42,7 @@ config = Config(
         "lr": 1e-3,
         "weight_decay": 5e-4,
     },
+    warmup_iter=0,
     scheduler=StepLR,
     scheduler_kwargs={
         "step_size": 30 * NUM_ITERATION_ON_EPOCH,

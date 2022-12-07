@@ -9,8 +9,8 @@ install:
 download_weights:
 	dvc pull -R weights -r $(DVC_REMOTE_NAME)
 
-.PHONY: run_tests
-run_tests:
+.PHONY: run_unit_tests
+run_unit_tests:
 	PYTHONPATH=. pytest tests/
 
 .PHONY: lint
