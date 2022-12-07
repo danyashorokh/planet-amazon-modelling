@@ -18,10 +18,9 @@ tests:
       - make run_tests
 
 before_script:
-    - chmod 400 $HOST_SSH_KEY_BASE64
-    - mkdir -p ~/.ssh
-    - cp $HOST_SSH_KEY_BASE64 ~/.ssh/id_rsa
-    - chmod 400 ~/.ssh/id_rsa
+    - mkdir ~/.ssh
+    - echo "$HOST_SSH_KEY_BASE64" | base64 -d > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
 
 after_script:
     - rm -f ~/.ssh/id_rsa
