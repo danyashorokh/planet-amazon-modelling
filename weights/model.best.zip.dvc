@@ -1,0 +1,4 @@
+outs:
+- md5: 024479aac1069f0d30f2cdd5c92cd76c
+  size: 44870185
+  path: model.best.zip
