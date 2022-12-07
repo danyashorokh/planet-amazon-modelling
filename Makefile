@@ -1,5 +1,5 @@
 
-DVC_REMOTE_NAME := gstorage
+DVC_REMOTE_NAME := storage
 
 .PHONY: install
 install:
@@ -7,7 +7,7 @@ install:
 
 .PHONY: download_weights
 download_weights:
-	dvc pull -R weights -r gstorage
+	dvc pull -R weights -r $(DVC_REMOTE_NAME)
 
 .PHONY: run_tests
 run_tests:
