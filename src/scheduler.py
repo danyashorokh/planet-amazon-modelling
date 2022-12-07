@@ -1,5 +1,5 @@
 import math
-from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import _LRScheduler  # noqa: WPS450
 
 
 class CosineAnnealingWarmUpRestarts(_LRScheduler):
@@ -7,11 +7,11 @@ class CosineAnnealingWarmUpRestarts(_LRScheduler):
 
     def __init__(self, optimizer, T_0, T_mult=1, eta_max=0.1, T_up=0, gamma=1.0, last_epoch=-1):
         if T_0 <= 0 or not isinstance(T_0, int):
-            raise ValueError("Expected positive integer T_0, but got {0}".format(T_0))
+            raise ValueError('Expected positive integer T_0, but got {0}'.format(T_0))
         if T_mult < 1 or not isinstance(T_mult, int):
-            raise ValueError("Expected integer T_mult >= 1, but got {0}".format(T_mult))
+            raise ValueError('Expected integer T_mult >= 1, but got {0}'.format(T_mult))
         if T_up < 0 or not isinstance(T_up, int):
-            raise ValueError("Expected positive integer T_up, but got {0}".format(T_up))
+            raise ValueError('Expected positive integer T_up, but got {0}'.format(T_up))
         self.T_0 = T_0
         self.T_mult = T_mult
         self.base_eta_max = eta_max
@@ -21,7 +21,7 @@ class CosineAnnealingWarmUpRestarts(_LRScheduler):
         self.gamma = gamma
         self.cycle = 0
         self.T_cur = last_epoch
-        super(CosineAnnealingWarmUpRestarts, self).__init__(optimizer, last_epoch)
+        super(CosineAnnealingWarmUpRestarts, self).__init__(optimizer, last_epoch)  # noqa: WPS608
 
     def get_lr(self):
         if self.T_cur == -1:
@@ -29,9 +29,9 @@ class CosineAnnealingWarmUpRestarts(_LRScheduler):
         elif self.T_cur < self.T_up:
             return [(self.eta_max - base_lr) * self.T_cur / self.T_up + base_lr for base_lr in self.base_lrs]
         else:
-            return [
-                base_lr + (self.eta_max - base_lr) * (1 + math.cos(math.pi * (self.T_cur - self.T_up)
-                                                                   / (self.T_i - self.T_up))) / 2  # noqa: W503
+            return [  # noqa: WPS503
+                base_lr + (self.eta_max -
+                           base_lr) * (1 + math.cos(math.pi * (self.T_cur - self.T_up) / (self.T_i - self.T_up))) / 2
                 for base_lr in self.base_lrs
             ]
 

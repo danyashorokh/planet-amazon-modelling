@@ -12,7 +12,7 @@ import pandas as pd
 from src.base_config import Config
 from src.const import IMAGES, TARGETS
 from src.utils import worker_init_fn
-from torch.utils.data import DataLoader, Dataset, RandomSampler # noqa
+from torch.utils.data import DataLoader, Dataset
 
 
 class CustomDataset(Dataset):
@@ -31,14 +31,14 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx: int) -> tp.Dict[str, np.ndarray]:
         row = self.df.iloc[idx]
 
-        img_path = f"{os.path.join(self.config.images_dir, row[self.config.image_col_id])}.jpg"
-        target = np.array(row.drop([self.config.image_col_id]), dtype="float32")
+        img_path = f'{os.path.join(self.config.images_dir, row[self.config.image_col_id])}.jpg'
+        target = np.array(row.drop([self.config.image_col_id]), dtype='float32')
 
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         if self.augmentation:
-            image = self.augmentation(image=image)["image"]
+            image = self.augmentation(image=image)['image']
         if self.preprocessing:
             image = self.preprocessing(image)
 
@@ -77,16 +77,16 @@ def _get_dataframes(config: Config) -> tp.Tuple[pd.DataFrame, pd.DataFrame, pd.D
     valid_df = pd.read_csv(config.valid_dataset_path)
     test_df = pd.read_csv(config.test_dataset_path)
 
-    logging.info(f"Train dataset: {len(train_df)}")
-    logging.info(f"Valid dataset: {len(valid_df)}")
-    logging.info(f"Test dataset: {len(test_df)}")
+    logging.info(f'Train dataset: {len(train_df)}')
+    logging.info(f'Valid dataset: {len(valid_df)}')
+    logging.info(f'Test dataset: {len(test_df)}')
 
     return train_df, valid_df, test_df
 
 
 def get_class_names(config: Config) -> tp.List[str]:
     class_names = list(pd.read_csv(config.train_dataset_path, nrows=1).drop(config.image_col_id, axis=1))
-    logging.info(f"Classes num: {len(class_names)}")
+    logging.info(f'Classes num: {len(class_names)}')
     return class_names
 
 
@@ -119,12 +119,10 @@ def get_loaders(config: Config) -> tp.Tuple[tp.OrderedDict[str, DataLoader], tp.
     else:
         batch_sampler = None
 
-    # batch_sampler = RandomSampler(len(train_dataset.df))
-
     train_loader = DataLoader(
         train_dataset,
         batch_size=1 if batch_sampler else config.batch_size,
-        shuffle=False if batch_sampler else True,
+        shuffle=False if batch_sampler else True,  # noqa: WPS502
         num_workers=config.num_workers,
         worker_init_fn=worker_init_fn,
         batch_sampler=batch_sampler,
@@ -139,4 +137,4 @@ def get_loaders(config: Config) -> tp.Tuple[tp.OrderedDict[str, DataLoader], tp.
 
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
 
-    return OrderedDict({"train": train_loader, "valid": valid_loader, "infer": test_loader})
+    return OrderedDict({'train': train_loader, 'valid': valid_loader, 'infer': test_loader})

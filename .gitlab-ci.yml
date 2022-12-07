@@ -7,7 +7,7 @@ stages:
 lint:
     stage: lint
     script:
-      - make install
+      - python3 -m pip install wemake-python-styleguide==0.16.1
       - make lint
 
 tests:

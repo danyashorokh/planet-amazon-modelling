@@ -16,6 +16,7 @@ class Config:
     loss: torch.nn.Module
     optimizer: type(Optimizer)
     optimizer_kwargs: tp.Mapping
+    warmup_iter: int
     scheduler: tp.Optional[tp.Any]
     scheduler_kwargs: tp.Mapping
     preprocessing: tp.Callable
@@ -55,7 +56,7 @@ class Config:
         return res
 
     def __post_init__(self):
-        self.checkpoints_dir = os.path.join(
-            "./weights",
+        self.checkpoints_dir = os.path.join(  # noqa: WPS601
+            './weights',
             self.experiment_name,
         )

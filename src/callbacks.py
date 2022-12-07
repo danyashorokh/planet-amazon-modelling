@@ -17,19 +17,19 @@ class FreezeModelParts(Callback):
         self.parts = parts if isinstance(parts, list) else [parts]
         self.on_epoch = on_epoch
 
-    def on_epoch_start(self, runner: "IRunner") -> None:
+    def on_epoch_start(self, runner: 'IRunner') -> None:
         if runner.epoch_step == self.on_epoch:
             for part in self.parts:
                 for param in self.get_model_part(part, runner).parameters():
                     param.requires_grad = False
 
-    def on_stage_end(self, runner: "IRunner") -> None:
+    def on_stage_end(self, runner: 'IRunner') -> None:
         for part in self.parts:
             for param in self.get_model_part(part, runner).parameters():
                 param.required_grad = True
 
     def get_model_part(self, part: str, runner: IRunner) -> nn.Module:
         model_part = runner.model
-        for sub_part in part.split("."):
+        for sub_part in part.split('.'):
             model_part = getattr(model_part, sub_part)
         return model_part

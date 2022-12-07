@@ -9,7 +9,7 @@ from clearml import Task
 from src.base_config import Config
 
 
-class ClearMLLogger(ILogger):
+class ClearMLLogger(ILogger):  # noqa: WPS338
     @property
     def logger(self) -> Any:
         return self.clearml_logger
@@ -40,12 +40,12 @@ class ClearMLLogger(ILogger):
         self,
         metrics: tp.Dict[str, float],
         scope: str,
-        runner: "IRunner",
+        runner: 'IRunner',
         infer: bool = False,
     ):
         step = runner.sample_step if self.log_batch_metrics else runner.epoch_step
 
-        if scope == "loader" and self.log_epoch_metrics:
+        if scope == 'loader' and self.log_epoch_metrics:
             if infer:
                 self._log_infer_metrics(
                     metrics=metrics,

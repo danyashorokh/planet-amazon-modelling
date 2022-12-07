@@ -1,5 +1,5 @@
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 
 from torchvision.ops.focal_loss import sigmoid_focal_loss
 
@@ -21,7 +21,7 @@ class FocalLoss(nn.Module):
         label_smoothing: float = 0.0,
         alpha: float = 0.25,
         gamma: float = 2,
-        reduction: str = "mean",
+        reduction: str = 'mean',
     ):
         super().__init__()
         self.label_smoothing = label_smoothing
