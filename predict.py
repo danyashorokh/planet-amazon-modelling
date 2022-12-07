@@ -95,7 +95,7 @@ def main():
     detector = ImageClassifier(model_path=args.model_path, device=args.device)
 
     image = cv2.imread(args.img_path)
-    preds = detector.predict_proba(image)
+    preds = detector.predict(image)
     print(preds)
 
     if args.show:
