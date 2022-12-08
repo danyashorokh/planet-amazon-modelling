@@ -1,6 +1,6 @@
 ## Modelling
 
-Multilabel classification in task planet-understanding-the-amazon-from-space.
+Multilabel classification with planet-understanding-the-amazon-from-space [task](https://www.kaggle.com/competitions/planet-understanding-the-amazon-from-space/overview).
 
 ### Dataset
 
@@ -29,6 +29,7 @@ Download the dataset from [here](https://www.kaggle.com/c/planet-understanding-t
     ```
     python train_test_split.py -i path/to/dataframe -o path/to/save/splited/dataframes -drop-cols tags -col_id image_name
     ```
+    or use this [link](https://www.kaggle.com/code/syeddanish/stratified-validation-split)
 
 4. ClearML setting
     - [in your ClearML profile](https://app.community.clear.ml/profile) click "Create new credentials"
@@ -47,7 +48,7 @@ Start without `nohup`:
 CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train.py configs/simple_config.py
 ```
 
-### Training with pytorch-lightning (still in development)
+### Training with pytorch-lightning
 Start with `nohup`:
 
 ```
@@ -64,10 +65,11 @@ CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classificat
 
 Convert model to script format with `notebooks/convert-to-script.ipynb`
 
-### Download weights (doesn't work)
+### Download weights
 
 ```
-dvc pull -R weights -r gstorage
+dvc pull -R weights -r storage (for ssh)
+dvc pull -R weights -r gstorage (for gdrive)
 ```
 
 ### Predict
@@ -81,3 +83,5 @@ python predict.py -w /path/to/your/weights -i /path/to/your/image --show
 * Catalyst resnet18 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/ea958aa81dda4c1b8cb3354ba8542c07/output/execution
 
 * Catalyst efficientnet_b3 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/069bb557d87d46fa8b64adc8151f1609/output/execution
+
+* pytorch-lightning resnet18 (only test) https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/726e6d4cf9f6492fb1761e9cc486e0b1/output/execution

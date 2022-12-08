@@ -3,22 +3,22 @@ import logging
 from typing import List, Any # noqa
 from runpy import run_path
 
+import pandas as pd
 import timm
 import torch
 from src.base_config import Config
-from src.const import IMAGES, LOGITS, PREDICTS, SCORES, TARGETS, VALID # noqa
+from src.const import IMAGES, LOGITS, PREDICTS, SCORES, TARGETS, VALID, LOSS # noqa
 from src.dataset import get_class_names, get_loaders
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, TQDMProgressBar, RichProgressBar # noqa
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, RichProgressBar, LearningRateMonitor # noqa
+from pytorch_lightning.callbacks import ModelPruning # noqa
 from pytorch_lightning import loggers # noqa
 from pytorch_lightning.utilities.model_summary import ModelSummary # noqa
 from pytorch_lightning.loggers import CSVLogger # noqa
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger # noqa
-from pytorch_lightning.callbacks import ModelPruning # noqa
 
-from torchmetrics.classification import MultilabelAUROC, MultilabelF1Score
-from torchmetrics import MetricCollection # noqa
+from torchmetrics.classification import MultilabelAUROC, MultilabelF1Score, AUROC
 
 from clearml import Task, Logger # noqa
 
@@ -30,7 +30,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 def arg_parse() -> Any:
     parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", type=str, help="config file")
+    parser.add_argument('config_file', type=str, help='config file')
     return parser.parse_args()
 
 
@@ -38,31 +38,44 @@ def train(config: Config):
 
     pl.seed_everything(config.seed)
 
+    # init logger
     task = Task.init(project_name=config.project_name, task_name=config.experiment_name)
     task.connect(config.to_dict())
     clearml_logger = task.get_logger()
 
+    # get data and class names
     loaders = get_loaders(config)
     class_names = get_class_names(config)
 
+    # get model
     model = timm.create_model(num_classes=len(class_names), **config.model_kwargs)
     if config.checkpoint_name is not None:
         model.load_state_dict(torch.load(config.checkpoint_name))
 
+    # get optimizer and scheduler
     optimizer = config.optimizer(params=model.parameters(), **config.optimizer_kwargs)
     if config.scheduler is not None:
         scheduler = config.scheduler(optimizer=optimizer, **config.scheduler_kwargs)
     else:
         scheduler = None
 
+    # init callbacks
+    model_checkpoint = ModelCheckpoint(
+        dirpath=config.checkpoints_dir, filename='{epoch}_{val_loss:.2f}_{val_f1:.2f}',
+        monitor=config.valid_metric, verbose=False, save_last=None,
+        save_top_k=10, save_weights_only=True, mode='min' if config.minimize_metric else 'max')
+    model_checkpoint.FILE_EXTENSION = '.pth'
+
+    lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
+
+    early_stopping = EarlyStopping(monitor='val_loss', patience=10)
+
     callbacks = [
-        ModelCheckpoint(dirpath=config.checkpoints_dir, filename='{epoch}_{val_loss:.2f}',
-                        monitor=config.valid_metric, verbose=False, save_last=None,
-                        save_top_k=10, save_weights_only=False, mode='min' if config.minimize_metric else 'max'),
-        # EarlyStopping(monitor='val_loss', patience=10),
-        # TQDMProgressBar(refresh_rate=1),
+        model_checkpoint,
+        early_stopping,
+        lr_monitor,
         RichProgressBar(leave=False),
-        # ModelPruning("l1_unstructured", amount=0.5),
+        # ModelPruning('l1_unstructured', amount=0.5),
     ]
     callbacks.extend(config.callbacks)
 
@@ -80,129 +93,223 @@ def train(config: Config):
         def test_dataloader(self):
             return self.loaders['infer']
 
-    class Model(pl.LightningModule):
-        def __init__(self, model, loss, class_names):
-            super(Model, self).__init__()
+    class TrainModule(pl.LightningModule):
+        def __init__(self, model, loss, class_names, optimizer, scheduler, warmup_iter, class_threshold):
+            super(TrainModule, self).__init__()
 
             self.save_hyperparameters()
             self.model = model
-            self.class_names = class_names
             self.loss = loss
-            self.train_auroc = MultilabelAUROC(num_labels=len(class_names))
-            self.val_auroc = MultilabelAUROC(num_labels=len(class_names))
+            self.class_names = class_names
+            self.num_classes = len(class_names)
+            self.optimizer = optimizer
+            self.scheduler = scheduler
+            self.warmup_iter = warmup_iter
+            self.class_threshold = class_threshold
+            # for warmupup
+            self.init_lr = self.optimizer.param_groups[0]['lr']
+            # metrics
+            self.train_auroc = MultilabelAUROC(num_labels=self.num_classes, average=None)
+            self.train_f1 = MultilabelF1Score(num_labels=self.num_classes, average=None)
+            self.val_auroc = MultilabelAUROC(num_labels=self.num_classes, average=None)
+            self.val_f1 = MultilabelF1Score(num_labels=self.num_classes, average=None)
+            self.test_auroc = MultilabelAUROC(num_labels=self.num_classes, average=None)
+            self.test_f1 = MultilabelF1Score(num_labels=self.num_classes, average=None)
 
-            self.train_f1 = MultilabelF1Score(num_labels=len(class_names))
-            self.val_f1 = MultilabelF1Score(num_labels=len(class_names))
+        def forward(self, x: torch.Tensor):
+            """Get output from model.
+
+            Args:
+                x: torch.Tensor - batch of images.
+
+            Returns:
+                output: torch.Tensor - predicted logits.
+            """
+            return self.model(x)
 
         def training_step(self, batch, batch_idx):
 
             images, labels = batch[IMAGES], batch[TARGETS]
+            logits = self(images)
+            scores = torch.sigmoid(logits)
 
-            output = self.model(images)
-            output = torch.sigmoid(output)
-            # output = (output > config.binary_thresh).float()
+            loss = self.loss(logits, labels)
+            self.log('train_loss', loss, prog_bar=True, logger=True, on_step=True)
+            clearml_logger.report_scalar('loss', 'train', iteration=batch_idx, value=loss)
 
-            loss = self.loss(output, labels)
-            self.log("train_loss", loss, prog_bar=True, logger=True)
-            clearml_logger.report_scalar("train", "loss", iteration=batch_idx, value=loss)
+            current_lr = self.optimizer.param_groups[0]['lr']
+            self.log('LR', current_lr, prog_bar=True, logger=True, on_step=True)
 
-            self.train_auroc(output, labels)
-            self.log('train_auroc', self.train_auroc, prog_bar=True, logger=True, on_step=False, on_epoch=True)
+            return {LOSS: loss, LOGITS: logits, SCORES: scores, TARGETS: labels}
 
-            self.train_f1(output, labels)
-            self.log('train_f1', self.train_f1, prog_bar=True, logger=True, on_step=False, on_epoch=True)
-            # clearml_logger.report_scalar("train", "auroc", iteration=batch_idx, value=self.train_acc)
+        def training_epoch_end(self, training_step_outputs):
 
-            return {"loss": loss, "predictions": output, "labels": labels}
+            labels = []
+            scores = []
+            for output in training_step_outputs:
+                for out_labels in output[TARGETS].cpu():
+                    labels.append(out_labels)
+                for out_predictions in output[SCORES].cpu():
+                    scores.append(out_predictions)
+            scores = torch.stack(scores)
+            labels = torch.stack(labels)
+            predictions = (scores > self.class_threshold).to(torch.int32)
+
+            train_aurocs = self.train_auroc(scores, labels).numpy()
+            train_f1 = self.train_f1(predictions, labels).numpy()
+
+            self.log('train_auroc', float(train_aurocs.mean()), prog_bar=True, logger=True)
+            clearml_logger.report_scalar('auroc_macro', 'train', iteration=self.current_epoch,
+                                         value=float(train_aurocs.mean()))
+            self.log('train_f1', float(train_f1.mean()), prog_bar=True, logger=True)
+
+            for i, name in enumerate(self.class_names):
+                self.log(f'train_{name}_rocauc', train_aurocs[i])
+                clearml_logger.report_scalar(f'rocauc_{name}', 'train', train_aurocs[i], self.current_epoch)
+
+                self.log(f'train_{name}_f1', train_f1[i])
+                clearml_logger.report_scalar(f'f1_{name}', 'train', train_f1[i], self.current_epoch)
 
         def validation_step(self, batch, batch_idx):
 
             images, labels = batch[IMAGES], batch[TARGETS]
+            logits = self(images)
+            scores = torch.sigmoid(logits)
 
-            output = self.model(images)
-            output = torch.sigmoid(output)
-            # output = (output > config.binary_thresh).float()
+            loss = self.loss(logits, labels)
+            self.log('val_loss', loss, prog_bar=True, logger=True, on_step=True)
+            clearml_logger.report_scalar('loss', 'val', iteration=batch_idx, value=loss)
 
-            loss = self.loss(output, labels)
-            self.log("val_loss", loss, prog_bar=True, logger=True)
-            clearml_logger.report_scalar("val", "loss", iteration=batch_idx, value=loss)
+            return {LOSS: loss, LOGITS: logits, SCORES: scores, TARGETS: labels}
 
-            self.val_auroc(output, labels)
-            self.log('val_auroc', self.val_auroc, prog_bar=True, logger=True, on_step=False, on_epoch=True)
+        def validation_epoch_end(self, validation_step_outputs):
 
-            self.val_f1(output, labels)
-            self.log('val_f1', self.val_f1, prog_bar=True, logger=True, on_step=False, on_epoch=True)
-#             clearml_logger.report_scalar("val", "auroc", iteration=batch_idx, value=self.val_acc)
+            labels = []
+            scores = []
+            for output in validation_step_outputs:
+                for out_labels in output[TARGETS].detach().cpu():
+                    labels.append(out_labels)
+                for out_predictions in output[SCORES].detach().cpu():
+                    scores.append(out_predictions)
+            scores = torch.stack(scores)
+            labels = torch.stack(labels)
+            predictions = (scores > self.class_threshold).to(torch.int32)
 
-            return loss
+            val_aurocs = self.val_auroc(scores, labels).numpy()
+            val_f1 = self.val_f1(predictions, labels).numpy()
+
+            self.log('val_auroc', float(val_aurocs.mean()), prog_bar=True, logger=True)
+            clearml_logger.report_scalar('auroc_macro', 'val', iteration=self.current_epoch,
+                                         value=float(val_aurocs.mean()))
+            self.log('val_f1', float(val_f1.mean()), prog_bar=True, logger=True)
+
+            for i, name in enumerate(self.class_names):
+                self.log(f'val_{name}_rocauc', val_aurocs[i])
+                clearml_logger.report_scalar(f'rocauc_{name}', 'val', val_aurocs[i], self.current_epoch)
+
+                self.log(f'val_{name}_f1', val_f1[i])
+                clearml_logger.report_scalar(f'f1_{name}', 'val', val_f1[i], self.current_epoch)
 
         def test_step(self, batch, batch_idx):
 
             images, labels = batch[IMAGES], batch[TARGETS]
+            logits = self(images)
+            scores = torch.sigmoid(logits)
+            loss = self.loss(logits, labels)
 
-            output = self.model(images)
-            output = torch.sigmoid(output)
-            # output = (output > config.binary_thresh).float()
+            return {LOSS: loss, LOGITS: logits, SCORES: scores, TARGETS: labels}
 
-            loss = self.loss(output, labels)
-            self.log("test_loss", loss, prog_bar=True, logger=True)
-#             clearml_logger.report_scalar("test", "loss", iteration=batch_idx, value=loss)
+        def test_epoch_end(self, test_step_outputs):
 
-            return loss
+            labels = []
+            scores = []
+            for output in test_step_outputs:
+                for out_labels in output[TARGETS].detach().cpu():
+                    labels.append(out_labels)
+                for out_predictions in output[SCORES].detach().cpu():
+                    scores.append(out_predictions)
+            scores = torch.stack(scores)
+            labels = torch.stack(labels)
+            predictions = (scores > self.class_threshold).to(torch.int32)
 
-        # def training_epoch_end(self, outputs):
-        #     labels = []
-        #     predictions = []
+            test_aurocs = self.test_auroc(scores, labels).numpy()
+            test_f1 = self.test_f1(predictions, labels).numpy()
 
-        #     for output in outputs:
-        #         for out_labels in output["labels"].detach().cpu():
-        #             labels.append(out_labels)
+            test_results = pd.DataFrame(index=config.log_metrics)
+            for i, name in enumerate(self.class_names):
+                test_results[name] = [test_aurocs[i], test_f1[i]]
 
-        #     for output in outputs:
-        #         for out_preds in output["predictions"].detach().cpu():
-        #             predictions.append(out_preds)
-
-        #     labels = torch.stack(labels)
-        #     predictions = torch.stack(predictions)
-
-        #     for i, name in enumerate(LABEL_COLUMNS):
-        #         roc_score = auroc(predictions[:, i], labels[:, i])
-        #         self.logger.experiment.add_scalar(
-        #             f"{name}_roc_auc/Train", roc_score, self.current_epoch
-        #         )
+            clearml_logger.report_table(title='Test Results', series='Test Results', iteration=0,
+                                        table_plot=test_results)
 
         def configure_optimizers(self):
+            """To callback for configuring optimizers.
 
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": {
-                    "scheduler": scheduler,
-                    "monitor": "val_loss",
-                    "frequency": 1
-                    # If "monitor" references validation metrics, then "frequency" should be set to a
-                    # multiple of "trainer.check_val_every_n_epoch".
-                },
-            }
+            Returns:
+                optimizer: torch.optim - optimizer for PL.
+            """
+            return [self.optimizer], [self.scheduler]
+
+        def optimizer_step(
+                self,
+                epoch,
+                batch_idx,
+                optimizer,
+                optimizer_idx,
+                optimizer_closure,
+                on_tpu=False,
+                using_native_amp=False,
+                using_lbfgs=False,
+        ):
+            """Set optimizer warmup.
+
+            Args:
+                epoch: int - epoch num.
+                batch_idx: int - batch index.
+                optimizer: torch.optim - torch optimizer.
+                optimizer_idx: int - optimizer pg index.
+                optimizer_closure: function - optimizer closure.
+                on_tpu: bool - tpu flag.
+                using_native_amp: bool - amp flag.
+                using_lbfgs: bool - lbfgs flag.
+            """
+            optimizer.step(optimizer_closure)
+            if self.trainer.global_step < self.warmup_iter:
+                lr_scale = min(
+                    1,
+                    float(self.trainer.global_step + 1) / self.warmup_iter
+                )
+                for pg in optimizer.param_groups:
+                    pg['lr'] = lr_scale * self.init_lr
+
+        def on_save_checkpoint(self, checkpoint):
+            """Save custom state dict.
+
+            Function is needed, because we want only timm state_dict for scripting.
+
+            Args:
+                checkpoint: pl.checkpoint - checkpoint from PL.
+            """
+            checkpoint['my_state_dict'] = self.model.state_dict()
 
     data = DataModule(loaders)
-    model_pl = Model(model, config.loss, class_names)
+    model = TrainModule(model, config.loss, class_names, optimizer, scheduler, config.warmup_iter, config.warmup_iter)
 
     trainer = pl.Trainer(
         max_epochs=config.n_epochs,
-        accelerator='gpu',
+        accelerator='cpu',
         devices=1,
         callbacks=callbacks,
-        # logger=csv_logger,
     )
 
     # train
-    trainer.fit(model_pl, data)
+    trainer.fit(model, data)
 
     # evaluate
-    trainer.test(model_pl, data)
+    trainer.test(model, data)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     args = arg_parse()

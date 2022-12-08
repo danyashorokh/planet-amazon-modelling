@@ -11,8 +11,8 @@ from torch.optim.lr_scheduler import StepLR
 
 SEED = 42
 IMG_SIZE = 224
-BATCH_SIZE = 32  # 256
-N_EPOCHS = 10
+BATCH_SIZE = 32
+N_EPOCHS = 2
 NUM_ITERATION_ON_EPOCH = 10
 ROOT_PATH = os.path.join(os.environ.get("ROOT_PATH"))
 
@@ -36,12 +36,13 @@ augmentations = albu.Compose(
 config = Config(
     num_workers=0,
     seed=SEED,
-    loss=BCELoss(),  # BCEWithLogitsLoss(),
+    loss=BCEWithLogitsLoss(),
     optimizer=torch.optim.Adam,
     optimizer_kwargs={
         "lr": 1e-3,
         "weight_decay": 5e-4,
     },
+    warmup_iter=0,
     scheduler=StepLR,
     scheduler_kwargs={
         "step_size": 30 * NUM_ITERATION_ON_EPOCH,
@@ -60,9 +61,9 @@ config = Config(
     minimize_metric=True,
     images_dir=os.path.join(ROOT_PATH, "raw", "train"),
     image_col_id='image_name',
-    train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df.csv"),
-    valid_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "valid_df.csv"),
-    test_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "test_df.csv"),
+    train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df_1024.csv"),
+    valid_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "valid_df_256.csv"),
+    test_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "test_df_1024.csv"),
     project_name="[Classification]planet-amazon",
     experiment_name=f'{os.path.basename(__file__).split(".")[0]}_{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
 )

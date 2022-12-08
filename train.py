@@ -20,7 +20,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 def arg_parse() -> Any:
     parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", type=str, help="config file")
+    parser.add_argument('config_file', type=str, help='config file')
     return parser.parse_args()
 
 
@@ -28,13 +28,13 @@ def get_base_callbacks(config: Config, class_names: List[str]) -> List[Callback]
     return [
         dl.BatchTransformCallback(
             transform=torch.sigmoid,
-            scope="on_batch_end",
+            scope='on_batch_end',
             input_key=LOGITS,
             output_key=SCORES,
         ),
         dl.BatchTransformCallback(
             transform=lambda x: x > config.binary_thresh,
-            scope="on_batch_end",
+            scope='on_batch_end',
             input_key=SCORES,
             output_key=PREDICTS,
         ),
@@ -105,8 +105,8 @@ def train(config: Config):
         loaders=loaders,
         callbacks=callbacks,
         loggers={
-            "_clearml": clearml_logger,
-            "_tensorboard": TensorboardLogger(config.checkpoints_dir, log_batch_metrics=True),
+            '_clearml': clearml_logger,
+            '_tensorboard': TensorboardLogger(config.checkpoints_dir, log_batch_metrics=True),
         },
         num_epochs=config.n_epochs,
         valid_loader=VALID,
@@ -119,16 +119,16 @@ def train(config: Config):
 
     metrics = runner.evaluate_loader(
         model=model,
-        loader=loaders["infer"],
+        loader=loaders['infer'],
         callbacks=get_base_callbacks(config, class_names),
         verbose=True,
         seed=config.seed,
     )
 
-    clearml_logger.log_metrics(metrics, scope="loader", runner=runner, infer=True)
+    clearml_logger.log_metrics(metrics, scope='loader', runner=runner, infer=True)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     args = arg_parse()
