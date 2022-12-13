@@ -39,13 +39,13 @@ Download the dataset from [here](https://www.kaggle.com/c/planet-understanding-t
 Start with `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification nohup python train.py configs/simple_config.py > log.out
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification nohup python train_cat.py configs/simple_config_cat.py > log.out
 ```
 
 Start without `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train.py configs/simple_config.py
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train_cat.py configs/simple_config_cat.py
 ```
 
 ### Training with pytorch-lightning

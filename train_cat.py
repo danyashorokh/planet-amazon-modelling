@@ -33,7 +33,7 @@ def get_base_callbacks(config: Config, class_names: List[str]) -> List[Callback]
             output_key=SCORES,
         ),
         dl.BatchTransformCallback(
-            transform=lambda x: x > config.binary_thresh,
+            transform=lambda x: x > config.cls_thresh,
             scope='on_batch_end',
             input_key=SCORES,
             output_key=PREDICTS,

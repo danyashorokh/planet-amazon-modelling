@@ -9,7 +9,7 @@ import albumentations as albu
 import cv2
 import numpy as np
 import pandas as pd
-from src.base_config import Config
+from src.base_config_pl import Config
 from src.const import IMAGES, TARGETS
 from src.utils import worker_init_fn
 from torch.utils.data import DataLoader, Dataset

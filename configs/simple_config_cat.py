@@ -4,9 +4,9 @@ import os
 
 import albumentations as albu
 import torch
-from src.base_config import Config
+from src.base_config_cat import Config
 from src.utils import preprocess_imagenet
-from torch.nn import BCEWithLogitsLoss, BCELoss
+from torch.nn import BCEWithLogitsLoss
 from torch.optim.lr_scheduler import StepLR
 
 SEED = 42
@@ -56,14 +56,14 @@ config = Config(
     n_epochs=N_EPOCHS,
     model_kwargs={"model_name": "resnet18", "pretrained": True},
     log_metrics=["auc", "f1"],
-    binary_thresh=0.1,
+    cls_thresh=0.1,
     valid_metric="auc",
     minimize_metric=False,
     images_dir=os.path.join(ROOT_PATH, "raw", "train"),
     image_col_id='image_name',
-    train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df.csv"),
-    valid_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "valid_df.csv"),
-    test_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "test_df.csv"),
+    train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df_1024.csv"),
+    valid_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "valid_df_256.csv"),
+    test_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "test_df_1024.csv"),
     project_name="[Classification]planet-amazon",
     experiment_name=f'{os.path.basename(__file__).split(".")[0]}_{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
 )

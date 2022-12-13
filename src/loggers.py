@@ -6,7 +6,7 @@ import pandas as pd
 from catalyst.core.logger import ILogger
 from catalyst.core.runner import IRunner
 from clearml import Task
-from src.base_config import Config
+from src.base_config_cat import Config
 
 
 class ClearMLLogger(ILogger):  # noqa: WPS338
