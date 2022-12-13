@@ -6,7 +6,8 @@ from runpy import run_path
 import pandas as pd
 import timm
 import torch
-from src.base_config import Config
+
+from src.base_config_pl import Config
 from src.const import IMAGES, LOGITS, PREDICTS, SCORES, TARGETS, VALID, LOSS # noqa
 from src.dataset import get_class_names, get_loaders
 
@@ -14,18 +15,16 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, RichProgressBar, LearningRateMonitor # noqa
 from pytorch_lightning.callbacks import ModelPruning # noqa
 from pytorch_lightning import loggers # noqa
-from pytorch_lightning.utilities.model_summary import ModelSummary # noqa
-from pytorch_lightning.loggers import CSVLogger # noqa
-from pytorch_lightning.loggers.tensorboard import TensorBoardLogger # noqa
 
-from torchmetrics.classification import MultilabelAUROC, MultilabelF1Score, AUROC
+from torchmetrics.classification import MultilabelAUROC, MultilabelF1Score
+from torchmetrics import MetricCollection
 
-from clearml import Task, Logger # noqa
+from clearml import Task
 
 from src.utils import set_global_seed
 import ssl
 
-ssl._create_default_https_context = ssl._create_unverified_context
+ssl._create_default_https_context = ssl._create_unverified_context  # for timm model download
 
 
 def arg_parse() -> Any:
@@ -59,15 +58,23 @@ def train(config: Config):
     else:
         scheduler = None
 
+    # init metrics
+    metrics = MetricCollection({
+        'auroc': MultilabelAUROC(num_labels=len(class_names), average=None),
+        'auroc_micro': MultilabelAUROC(num_labels=len(class_names), average='micro'),
+        'auroc_macro': MultilabelAUROC(num_labels=len(class_names), average='macro'),
+        'f1': MultilabelF1Score(num_labels=len(class_names), average=None),
+        'f1_micro': MultilabelF1Score(num_labels=len(class_names), average='micro'),
+        'f1_macro': MultilabelF1Score(num_labels=len(class_names), average='macro'),
+    })
+
     # init callbacks
     model_checkpoint = ModelCheckpoint(
         dirpath=config.checkpoints_dir, filename='{epoch}_{val_loss:.2f}_{val_f1:.2f}',
         monitor=config.valid_metric, verbose=False, save_last=None,
         save_top_k=10, save_weights_only=True, mode='min' if config.minimize_metric else 'max')
     model_checkpoint.FILE_EXTENSION = '.pth'
-
     lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
-
     early_stopping = EarlyStopping(monitor='val_loss', patience=10)
 
     callbacks = [
@@ -94,10 +101,10 @@ def train(config: Config):
             return self.loaders['infer']
 
     class TrainModule(pl.LightningModule):
-        def __init__(self, model, loss, class_names, optimizer, scheduler, warmup_iter, class_threshold):
+        def __init__(self,
+                     model, loss, metrics, class_names, optimizer, scheduler, warmup_iter, class_threshold):
             super(TrainModule, self).__init__()
 
-            self.save_hyperparameters()
             self.model = model
             self.loss = loss
             self.class_names = class_names
@@ -109,12 +116,10 @@ def train(config: Config):
             # for warmupup
             self.init_lr = self.optimizer.param_groups[0]['lr']
             # metrics
-            self.train_auroc = MultilabelAUROC(num_labels=self.num_classes, average=None)
-            self.train_f1 = MultilabelF1Score(num_labels=self.num_classes, average=None)
-            self.val_auroc = MultilabelAUROC(num_labels=self.num_classes, average=None)
-            self.val_f1 = MultilabelF1Score(num_labels=self.num_classes, average=None)
-            self.test_auroc = MultilabelAUROC(num_labels=self.num_classes, average=None)
-            self.test_f1 = MultilabelF1Score(num_labels=self.num_classes, average=None)
+            self.train_metrics = metrics.clone(prefix="train_")
+            self.val_metrics = metrics.clone(prefix="val_")
+            self.test_metrics = metrics.clone(prefix="test_")
+            self.save_hyperparameters()
 
         def forward(self, x: torch.Tensor):
             """Get output from model.
@@ -134,6 +139,8 @@ def train(config: Config):
             scores = torch.sigmoid(logits)
 
             loss = self.loss(logits, labels)
+            self.train_metrics.update(scores, labels)
+
             self.log('train_loss', loss, prog_bar=True, logger=True, on_step=True)
             clearml_logger.report_scalar('loss', 'train', iteration=batch_idx, value=loss)
 
@@ -142,33 +149,23 @@ def train(config: Config):
 
             return {LOSS: loss, LOGITS: logits, SCORES: scores, TARGETS: labels}
 
-        def training_epoch_end(self, training_step_outputs):
+        def training_epoch_end(self, outputs):
 
-            labels = []
-            scores = []
-            for output in training_step_outputs:
-                for out_labels in output[TARGETS].cpu():
-                    labels.append(out_labels)
-                for out_predictions in output[SCORES].cpu():
-                    scores.append(out_predictions)
-            scores = torch.stack(scores)
-            labels = torch.stack(labels)
-            predictions = (scores > self.class_threshold).to(torch.int32)
+            train_metrics = self.train_metrics.compute()
 
-            train_aurocs = self.train_auroc(scores, labels).numpy()
-            train_f1 = self.train_f1(predictions, labels).numpy()
-
-            self.log('train_auroc', float(train_aurocs.mean()), prog_bar=True, logger=True)
+            # self.log('train_auroc_macro', train_metrics['train_auroc_macro'], prog_bar=True, logger=True)
+            # self.log('train_f1_macro', train_metrics['train_f1_macro'], prog_bar=True, logger=True)
             clearml_logger.report_scalar('auroc_macro', 'train', iteration=self.current_epoch,
-                                         value=float(train_aurocs.mean()))
-            self.log('train_f1', float(train_f1.mean()), prog_bar=True, logger=True)
+                                         value=float(train_metrics['train_auroc_macro']))
+            clearml_logger.report_scalar('f1_macro', 'train', iteration=self.current_epoch,
+                                         value=float(train_metrics['train_f1_macro']))
 
             for i, name in enumerate(self.class_names):
-                self.log(f'train_{name}_rocauc', train_aurocs[i])
-                clearml_logger.report_scalar(f'rocauc_{name}', 'train', train_aurocs[i], self.current_epoch)
+                clearml_logger.report_scalar(f'rocauc_{name}', 'train', float(train_metrics['train_auroc'][i]),
+                                             self.current_epoch)
 
-                self.log(f'train_{name}_f1', train_f1[i])
-                clearml_logger.report_scalar(f'f1_{name}', 'train', train_f1[i], self.current_epoch)
+                clearml_logger.report_scalar(f'rocauc_{name}', 'train', float(train_metrics['train_f1'][i]),
+                                             self.current_epoch)
 
         def validation_step(self, batch, batch_idx):
 
@@ -177,38 +174,29 @@ def train(config: Config):
             scores = torch.sigmoid(logits)
 
             loss = self.loss(logits, labels)
+            self.val_metrics.update(scores, labels)
+
             self.log('val_loss', loss, prog_bar=True, logger=True, on_step=True)
             clearml_logger.report_scalar('loss', 'val', iteration=batch_idx, value=loss)
 
             return {LOSS: loss, LOGITS: logits, SCORES: scores, TARGETS: labels}
 
-        def validation_epoch_end(self, validation_step_outputs):
+        def validation_epoch_end(self, outputs):
 
-            labels = []
-            scores = []
-            for output in validation_step_outputs:
-                for out_labels in output[TARGETS].detach().cpu():
-                    labels.append(out_labels)
-                for out_predictions in output[SCORES].detach().cpu():
-                    scores.append(out_predictions)
-            scores = torch.stack(scores)
-            labels = torch.stack(labels)
-            predictions = (scores > self.class_threshold).to(torch.int32)
+            val_metrics = self.val_metrics.compute()
 
-            val_aurocs = self.val_auroc(scores, labels).numpy()
-            val_f1 = self.val_f1(predictions, labels).numpy()
-
-            self.log('val_auroc', float(val_aurocs.mean()), prog_bar=True, logger=True)
+            # self.log('val_auroc_macro', val_metrics['val_auroc_macro'], prog_bar=True, logger=True)
+            # self.log('val_f1_macro', val_metrics['val_f1_macro'], prog_bar=True, logger=True)
             clearml_logger.report_scalar('auroc_macro', 'val', iteration=self.current_epoch,
-                                         value=float(val_aurocs.mean()))
-            self.log('val_f1', float(val_f1.mean()), prog_bar=True, logger=True)
-
+                                         value=float(val_metrics['val_auroc_macro']))
+            clearml_logger.report_scalar('f1_macro', 'val', iteration=self.current_epoch,
+                                         value=float(val_metrics['val_f1_macro']))
             for i, name in enumerate(self.class_names):
-                self.log(f'val_{name}_rocauc', val_aurocs[i])
-                clearml_logger.report_scalar(f'rocauc_{name}', 'val', val_aurocs[i], self.current_epoch)
+                clearml_logger.report_scalar(f'rocauc_{name}', 'val', float(val_metrics['val_auroc'][i]),
+                                             self.current_epoch)
 
-                self.log(f'val_{name}_f1', val_f1[i])
-                clearml_logger.report_scalar(f'f1_{name}', 'val', val_f1[i], self.current_epoch)
+                clearml_logger.report_scalar(f'rocauc_{name}', 'val', float(val_metrics['val_f1'][i]),
+                                             self.current_epoch)
 
         def test_step(self, batch, batch_idx):
 
@@ -217,27 +205,19 @@ def train(config: Config):
             scores = torch.sigmoid(logits)
             loss = self.loss(logits, labels)
 
+            self.test_metrics.update(scores, labels)
+
             return {LOSS: loss, LOGITS: logits, SCORES: scores, TARGETS: labels}
 
-        def test_epoch_end(self, test_step_outputs):
+        def test_epoch_end(self, outputs):
 
-            labels = []
-            scores = []
-            for output in test_step_outputs:
-                for out_labels in output[TARGETS].detach().cpu():
-                    labels.append(out_labels)
-                for out_predictions in output[SCORES].detach().cpu():
-                    scores.append(out_predictions)
-            scores = torch.stack(scores)
-            labels = torch.stack(labels)
-            predictions = (scores > self.class_threshold).to(torch.int32)
+            test_metrics = self.test_metrics.compute()
 
-            test_aurocs = self.test_auroc(scores, labels).numpy()
-            test_f1 = self.test_f1(predictions, labels).numpy()
-
-            test_results = pd.DataFrame(index=config.log_metrics)
+            test_not_agg_metrics = [el for el in test_metrics.keys() if 'micro' not in el and 'macro' not in el]
+            test_results = pd.DataFrame(index=test_not_agg_metrics)
             for i, name in enumerate(self.class_names):
-                test_results[name] = [test_aurocs[i], test_f1[i]]
+                for metric_name in test_not_agg_metrics:
+                    test_results.loc[metric_name, name] = float(test_metrics[metric_name][i])
 
             clearml_logger.report_table(title='Test Results', series='Test Results', iteration=0,
                                         table_plot=test_results)
@@ -248,7 +228,7 @@ def train(config: Config):
             Returns:
                 optimizer: torch.optim - optimizer for PL.
             """
-            return [self.optimizer], [self.scheduler]
+            return {'optimizer': self.optimizer, 'lr_scheduler': {'scheduler': self.scheduler}}
 
         def optimizer_step(
                 self,
@@ -293,13 +273,13 @@ def train(config: Config):
             checkpoint['my_state_dict'] = self.model.state_dict()
 
     data = DataModule(loaders)
-    model = TrainModule(model, config.loss, class_names, optimizer, scheduler, config.warmup_iter, config.warmup_iter)
+    model = TrainModule(model, config.loss, metrics, class_names, optimizer, scheduler, config.warmup_iter,
+                        config.cls_thresh)
 
     trainer = pl.Trainer(
         max_epochs=config.n_epochs,
-        accelerator='cpu',
-        devices=1,
         callbacks=callbacks,
+        **config.trainer_kwargs,
     )
 
     # train
