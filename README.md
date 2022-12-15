@@ -85,3 +85,5 @@ python predict.py -w /path/to/your/weights -i /path/to/your/image --show
 * Catalyst efficientnet_b3 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/069bb557d87d46fa8b64adc8151f1609/output/execution
 
 * pytorch-lightning resnet18 (only test) https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/726e6d4cf9f6492fb1761e9cc486e0b1/output/execution
+
+* pytorch-lightning efficientnet_b3 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/4fa7010eb67149938612d18880073933/output/execution
