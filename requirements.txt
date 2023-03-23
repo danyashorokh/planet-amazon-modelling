@@ -1,3 +1,4 @@
+numpy==1.23.3
 albumentations==1.0.3
 catalyst==22.04
 clearml==1.6.2
@@ -18,3 +19,4 @@ scikit-multilearn==0.2.0
 wemake-python-styleguide==0.16.1
 pytest==7.1.2
 pytest-cov==3.0.0
+vulture

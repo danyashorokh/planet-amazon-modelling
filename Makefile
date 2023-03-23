@@ -30,3 +30,7 @@ install_c_libs:
 
 simple_predict:
 	python predict.py -w weights/model.best.zip -i  path/to/your/image --show
+
+.PHONY: show_dead_code
+show_dead_code:
+    vulture <your_code>

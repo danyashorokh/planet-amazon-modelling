@@ -39,26 +39,26 @@ Download the dataset from [here](https://www.kaggle.com/c/planet-understanding-t
 Start with `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification nohup python train.py configs/simple_config.py > log.out
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon nohup python train_cat.py configs/simple_config_cat.py > log.out
 ```
 
 Start without `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train.py configs/simple_config.py
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon python train_cat.py configs/simple_config_cat.py
 ```
 
 ### Training with pytorch-lightning
 Start with `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification nohup python train_pl.py configs/simple_config_pl.py > log.out
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon nohup python train_pl.py configs/simple_config_pl.py > log.out
 ```
 
 Start without `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train_pl.py configs/simple_config_pl.py
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon python train_pl.py configs/simple_config_pl.py
 ```
 
 ### Export to script
@@ -85,3 +85,5 @@ python predict.py -w /path/to/your/weights -i /path/to/your/image --show
 * Catalyst efficientnet_b3 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/069bb557d87d46fa8b64adc8151f1609/output/execution
 
 * pytorch-lightning resnet18 (only test) https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/726e6d4cf9f6492fb1761e9cc486e0b1/output/execution
+
+* pytorch-lightning efficientnet_b3 https://app.clear.ml/projects/1355cffc7cea484db03f81ca07239a69/experiments/4fa7010eb67149938612d18880073933/output/execution

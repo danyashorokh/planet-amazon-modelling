@@ -27,7 +27,7 @@ class Config:
     experiment_name: str
     model_kwargs: tp.Mapping
     log_metrics: tp.List[str]
-    binary_thresh: float
+    cls_thresh: float
     valid_metric: str
     minimize_metric: bool
     images_dir: str

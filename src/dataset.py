@@ -9,7 +9,7 @@ import albumentations as albu
 import cv2
 import numpy as np
 import pandas as pd
-from src.base_config import Config
+from src.base_config_pl import Config
 from src.const import IMAGES, TARGETS
 from src.utils import worker_init_fn
 from torch.utils.data import DataLoader, Dataset
@@ -37,9 +37,9 @@ class CustomDataset(Dataset):
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        if self.augmentation:
+        if self.augmentation is not None:
             image = self.augmentation(image=image)['image']
-        if self.preprocessing:
+        if self.preprocessing is not None:
             image = self.preprocessing(image)
 
         return {IMAGES: image, TARGETS: target}

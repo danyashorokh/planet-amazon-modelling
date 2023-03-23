@@ -4,7 +4,7 @@ import os
 
 import albumentations as albu
 import torch
-from src.pl.base_config import Config
+from src.catalyst.base_config import Config
 from src.utils import preprocess_imagenet
 from torch.nn import BCEWithLogitsLoss
 from torch.optim.lr_scheduler import StepLR
@@ -12,8 +12,8 @@ from torch.optim.lr_scheduler import StepLR
 SEED = 42
 IMG_SIZE = 224
 BATCH_SIZE = 32
-N_EPOCHS = 5
-NUM_ITERATION_ON_EPOCH = 5
+N_EPOCHS = 10
+NUM_ITERATION_ON_EPOCH = 10
 ROOT_PATH = os.path.join(os.environ.get("ROOT_PATH"))
 
 augmentations = albu.Compose(
@@ -55,9 +55,10 @@ config = Config(
     num_iteration_on_epoch=NUM_ITERATION_ON_EPOCH,
     n_epochs=N_EPOCHS,
     model_kwargs={"model_name": "resnet18", "pretrained": True},
-    cls_thresh=0.5,
-    valid_metric="val_loss",
-    minimize_metric=True,
+    log_metrics=["auc", "f1"],
+    cls_thresh=0.1,
+    valid_metric="auc",
+    minimize_metric=False,
     images_dir=os.path.join(ROOT_PATH, "raw", "train"),
     image_col_id='image_name',
     train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df_1024.csv"),
@@ -65,8 +66,4 @@ config = Config(
     test_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "test_df_1024.csv"),
     project_name="[Classification]planet-amazon",
     experiment_name=f'{os.path.basename(__file__).split(".")[0]}_{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
-    trainer_kwargs={
-        "accelerator": "cpu",
-        "devices": 1,
-    },
 )
