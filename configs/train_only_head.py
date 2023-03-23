@@ -1,4 +1,3 @@
-from datetime import datetime
 from functools import partial
 import os
 
@@ -6,14 +5,15 @@ import albumentations as albu
 import torch
 from src.catalyst.base_config import Config
 from src.utils import preprocess_imagenet
+from src.catalyst.callbacks import FreezeModelParts
+from src.scheduler import CosineAnnealingWarmUpRestarts
 from torch.nn import BCEWithLogitsLoss
-from torch.optim.lr_scheduler import StepLR
 
 SEED = 42
 IMG_SIZE = 224
-BATCH_SIZE = 32
-N_EPOCHS = 10
-NUM_ITERATION_ON_EPOCH = 10
+BATCH_SIZE = 256
+N_EPOCHS = 100
+NUM_ITERATION_ON_EPOCH = 100
 ROOT_PATH = os.path.join(os.environ.get("ROOT_PATH"))
 
 augmentations = albu.Compose(
@@ -32,38 +32,43 @@ augmentations = albu.Compose(
     ]
 )
 
+callbacks = [
+    FreezeModelParts(parts=['conv1', 'bn1', 'layer1', 'layer2', 'layer3', 'layer4']),  # Замораживаем претрен веса
+]
 
 config = Config(
-    num_workers=0,
+    num_workers=4,
     seed=SEED,
     loss=BCEWithLogitsLoss(),
     optimizer=torch.optim.Adam,
     optimizer_kwargs={
-        "lr": 1e-3,
+        "lr": 1e-5,  # минимальное значение lr
         "weight_decay": 5e-4,
     },
-    warmup_iter=0,
-    scheduler=StepLR,
+    scheduler=CosineAnnealingWarmUpRestarts,
     scheduler_kwargs={
-        "step_size": 30 * NUM_ITERATION_ON_EPOCH,
-        "gamma": 0.1,
+        'T_0': 5 * NUM_ITERATION_ON_EPOCH,  # будет 5 цикла
+        'T_mult': 1,
+        'eta_max': 1e-3,  # максимальный lr
+        'T_up': 100,  # итераций warm up
+        'gamma': 0.7,  # затухание амплитуды
     },
     img_size=IMG_SIZE,
     augmentations=augmentations,
+    callbacks=callbacks,
     preprocessing=partial(preprocess_imagenet, img_size=IMG_SIZE),
     batch_size=BATCH_SIZE,
-    num_iteration_on_epoch=NUM_ITERATION_ON_EPOCH,
+    num_iteration_on_epoch=NUM_ITERATION_ON_EPOCH,  # увеличиваем количество итераций на эпоху
     n_epochs=N_EPOCHS,
     model_kwargs={"model_name": "resnet18", "pretrained": True},
     log_metrics=["auc", "f1"],
     cls_thresh=0.1,
     valid_metric="auc",
     minimize_metric=False,
-    images_dir=os.path.join(ROOT_PATH, "raw", "train"),
-    image_col_id='image_name',
-    train_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "train_df_1024.csv"),
-    valid_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "valid_df_256.csv"),
-    test_dataset_path=os.path.join(ROOT_PATH, "train_v2.csv", "test_df_1024.csv"),
+    images_dir=os.path.join(ROOT_PATH, "Images"),
+    train_dataset_path=os.path.join(ROOT_PATH, "train_df.csv"),
+    valid_dataset_path=os.path.join(ROOT_PATH, "valid_df.csv"),
+    test_dataset_path=os.path.join(ROOT_PATH, "test_df.csv"),
     project_name="[Classification]planet-amazon",
-    experiment_name=f'{os.path.basename(__file__).split(".")[0]}_{datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}',
+    experiment_name=f'{os.path.basename(__file__).split(".")[0]}',
 )

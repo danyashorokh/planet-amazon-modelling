@@ -7,8 +7,8 @@ from skmultilearn.model_selection.iterative_stratification import IterativeStrat
 
 
 def _split(
-    img_urls: np.array,
-    labels: np.array,
+    img_urls: np.ndarray,
+    labels: np.ndarray,
     sample_distribution_per_fold: tp.Union[None, tp.List[float]] = None,
 ) -> tp.Tuple[np.array, np.array]:
     stratifier = IterativeStratification(
@@ -28,11 +28,11 @@ def _split(
 
 def _show_split(
     train_fraction: float,
-    y_train: np.array,
-    y_dev: np.array,
-    y_val: np.array,
+    y_train: np.ndarray,
+    y_dev: np.ndarray,
+    y_val: np.ndarray,
     full_dataset: pd.DataFrame,
-) -> tp.NoReturn:
+) -> None:
 
     val_test_fraction = (1.0 - train_fraction) / 2
     info = [('train', train_fraction, y_train), ('test', val_test_fraction, y_dev), ('val', val_test_fraction, y_val)]

@@ -39,26 +39,26 @@ Download the dataset from [here](https://www.kaggle.com/c/planet-understanding-t
 Start with `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification nohup python train_cat.py configs/simple_config_cat.py > log.out
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon nohup python train_cat.py configs/simple_config_cat.py > log.out
 ```
 
 Start without `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train_cat.py configs/simple_config_cat.py
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon python train_cat.py configs/simple_config_cat.py
 ```
 
 ### Training with pytorch-lightning
 Start with `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification nohup python train_pl.py configs/simple_config_pl.py > log.out
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon nohup python train_pl.py configs/simple_config_pl.py > log.out
 ```
 
 Start without `nohup`:
 
 ```
-CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/movie-genre-classification python train_pl.py configs/simple_config_pl.py
+CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=1 ROOT_PATH=/data/amazon python train_pl.py configs/simple_config_pl.py
 ```
 
 ### Export to script

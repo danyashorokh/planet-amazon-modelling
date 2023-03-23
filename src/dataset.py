@@ -37,9 +37,9 @@ class CustomDataset(Dataset):
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        if self.augmentation:
+        if self.augmentation is not None:
             image = self.augmentation(image=image)['image']
-        if self.preprocessing:
+        if self.preprocessing is not None:
             image = self.preprocessing(image)
 
         return {IMAGES: image, TARGETS: target}

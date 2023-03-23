@@ -95,6 +95,7 @@ def main():
     detector = ImageClassifier(model_path=args.model_path, device=args.device)
 
     image = cv2.imread(args.img_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     preds = detector.predict(image)
     print(preds)
 

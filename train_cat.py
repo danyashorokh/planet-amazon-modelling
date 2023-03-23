@@ -7,11 +7,12 @@ import timm
 import torch
 from catalyst import dl
 from catalyst.callbacks import Callback
-from src.base_config import Config
+from catalyst.loggers.tensorboard import TensorboardLogger
+
+from src.base_config_cat import Config
 from src.const import IMAGES, LOGITS, PREDICTS, SCORES, TARGETS, VALID
 from src.dataset import get_class_names, get_loaders
-from src.loggers import ClearMLLogger
-from catalyst.loggers.tensorboard import TensorboardLogger
+from src.catalyst.loggers import ClearMLLogger
 from src.utils import set_global_seed
 import ssl
 

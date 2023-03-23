@@ -13,7 +13,6 @@ lint:
 unit_tests:
     stage: tests
     script:
-      - ls
       - make install_c_libs && make install && make download_weights
       - make run_unit_tests
 

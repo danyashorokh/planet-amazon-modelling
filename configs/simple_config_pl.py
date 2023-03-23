@@ -4,7 +4,7 @@ import os
 
 import albumentations as albu
 import torch
-from src.base_config_pl import Config
+from src.pl.base_config import Config
 from src.utils import preprocess_imagenet
 from torch.nn import BCEWithLogitsLoss
 from torch.optim.lr_scheduler import StepLR

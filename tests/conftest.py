@@ -31,7 +31,7 @@ def preprocess_imagenet(im: np.ndarray, img_size: tp.Union[int, tp.Tuple[int, in
 
 @pytest.fixture(scope='session')
 def dummy_input():
-    return np.random.rand(Config.size, Config.size, 3)
+    return np.ones((Config.size, Config.size, 3))
 
 
 @pytest.fixture(scope='session')
