@@ -33,4 +33,4 @@ simple_predict:
 
 .PHONY: show_dead_code
 show_dead_code:
-    vulture mydir
+    vulture <your_code>
